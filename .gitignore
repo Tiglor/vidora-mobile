@@ -1,0 +1,16 @@
+# uni-app / HBuilderX generated output
+unpackage/
+.hbuilderx/
+.uni/
+node_modules/
+
+# Local environment and IDE files
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+

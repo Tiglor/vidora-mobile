@@ -12,38 +12,51 @@
 import { reactive } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { post } from '../../utils/request'
+import { useUserStore } from '../../stores/user'
+import { useMessageStore } from '../../stores/message'
+
+const userStore = useUserStore()
+const messageStore = useMessageStore()
 
 const form = reactive({
   phone: '',
   password: ''
 })
 
+let redirectUrl = ''
+
+onLoad((options) => {
+  form.phone = uni.getStorageSync('lastPhone') || ''
+  redirectUrl = options?.redirect || ''
+})
+
 async function handleLogin() {
+  if (!form.phone || !form.password) {
+    uni.showToast({ title: '请输入手机号和密码', icon: 'none' })
+    return
+  }
   try {
-    const result = await post<{
-      token: string
-      userId: number
-      nickname: string
-      avatarUrl?: string
-      roles?: string[]
-      permissions?: string[]
-    }>('/api/auth/login', form)
-    uni.setStorageSync('token', result.token)
-    uni.setStorageSync('userId', result.userId)
-    uni.setStorageSync('nickname', result.nickname || '')
-    uni.setStorageSync('roles', result.roles || [])
-    uni.setStorageSync('permissions', result.permissions || [])
-    uni.switchTab({ url: '/pages/index/index' })
+    await userStore.login(form.phone, form.password)
+    uni.setStorageSync('lastPhone', form.phone)
+    messageStore.startPolling()
+    uni.showToast({ title: '登录成功', icon: 'success' })
+    setTimeout(() => {
+      if (redirectUrl) {
+        uni.navigateTo({ url: redirectUrl })
+      } else {
+        uni.switchTab({ url: '/pages/home/home' })
+      }
+    }, 500)
   } catch (e) {
     uni.showToast({ title: String(e), icon: 'none' })
   }
 }
 
-onLoad(() => {
-  form.phone = uni.getStorageSync('lastPhone') || ''
-})
-
 async function handleRegister() {
+  if (!form.phone || !form.password) {
+    uni.showToast({ title: '请输入手机号和密码', icon: 'none' })
+    return
+  }
   try {
     await post('/api/auth/register', { ...form, nickname: form.phone })
     uni.showToast({ title: '注册成功，请登录', icon: 'none' })

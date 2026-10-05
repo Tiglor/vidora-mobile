@@ -1,0 +1,1 @@
+import{$ as e,r as l}from"./index-DySa0-3o.js";import{l as t}from"./content.pzrn_-BI.js";const o=e("dict",()=>{const e=l([]),o=l(!1);let r=null;return{categories:e,loadCategories:function(l=!1){return o.value&&!l?Promise.resolve(e.value):(r||(r=t().then(l=>(e.value=l||[],o.value=!0,e.value)).finally(()=>{r=null})),r)}}});export{o as u};

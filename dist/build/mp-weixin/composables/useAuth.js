@@ -1,0 +1,1 @@
+"use strict";const e=require("../common/vendor.js"),r=require("../stores/user.js");exports.useAuth=function(){return{requireLogin:function(){return!!r.useUserStore().isLoggedIn||(e.index.navigateTo({url:"/pages/login/login"}),!1)}}};

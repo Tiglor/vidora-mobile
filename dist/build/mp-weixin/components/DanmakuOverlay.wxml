@@ -1,0 +1,1 @@
+<view class="danmaku-overlay data-v-1cd36ff7"><view wx:for="{{a}}" wx:for-item="dm" wx:key="b" class="{{['danmaku-item', 'data-v-1cd36ff7', dm.c]}}" style="{{'color:' + dm.d + ';' + ('font-size:' + dm.e) + ';' + ('top:' + dm.f) + ';' + ('animation-duration:' + dm.g)}}">{{dm.a}}</view></view>

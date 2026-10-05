@@ -1,0 +1,1 @@
+"use strict";const e=require("../common/vendor.js"),r=require("../api/content.js"),t=e.defineStore("dict",()=>{const t=e.ref([]),o=e.ref(!1);let l=null;return{categories:t,loadCategories:function(e=!1){return o.value&&!e?Promise.resolve(t.value):(l||(l=r.listCategories().then(e=>(t.value=e||[],o.value=!0,t.value)).finally(()=>{l=null})),l)}}});exports.useDictStore=t;

@@ -1,1 +1,0 @@
-"use strict";const e=require("../utils/request.js");exports.getHotSearches=t=>e.get("/api/hot-searches",{date:t}),exports.listCategories=()=>e.get("/api/categories/list"),exports.suggestTags=(t,s)=>e.get("/api/tags/suggest",{keyword:t,limit:s});

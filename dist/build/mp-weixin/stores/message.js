@@ -1,1 +1,0 @@
-"use strict";const e=require("../common/vendor.js"),n=require("../api/message.js"),t=e.defineStore("message",()=>{const t=e.ref(null);let r=null;async function s(){try{t.value=await n.getUnreadSummary()}catch{}}return{unread:t,fetchUnread:s,startPolling:function(e=3e4){r||(s(),r=setInterval(s,e))},stopPolling:function(){r&&(clearInterval(r),r=null)}}});exports.useMessageStore=t;

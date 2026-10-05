@@ -1,5 +1,7 @@
 # uni-app / HBuilderX generated output
 unpackage/
+# CLI 构建产物：npm run build:h5 / build:mp-weixin → dist/build/*，dev → dist/dev/*
+dist/
 .hbuilderx/
 .uni/
 node_modules/

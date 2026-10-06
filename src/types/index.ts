@@ -12,7 +12,7 @@ export interface VideoInfo {
   title: string
   description?: string
   coverUrl?: string
-  /** 播放地址只有 /videos/{id}/play-url 给，实体上没有 url 字段 */
+  /** 实体带这一列且分页/详情原样返回（DDL hls_url 可空，未转码完为 null），但本端播放一律取 /videos/{id}/play-url */
   hlsUrl?: string
   videoKey?: string
   duration?: number
@@ -25,7 +25,8 @@ export interface VideoInfo {
   likeCount?: number
   commentCount?: number
   shareCount?: number
-  /** 收藏数在 interact 的 ActionCounts 上，video_info 表里没有这一列 */
+  /** 本端收藏数不在这里：video_info 没有 favorite_count 列，它只在 interact 的 ActionCounts 上（见本文件下方） */
+  /** 状态档位（DDL status 列注释同）：0 上传中 1 转码中 2 审核中 3 已发布 4 已下架 */
   status?: number
   visibility?: number
   publishTime?: string
@@ -76,8 +77,7 @@ export interface CommentView {
   id: number
   videoId: number
   userId: number
-  nickname?: string
-  avatarUrl?: string
+  /** 昵称头像后端刻意不给（CommentView.java 类注释），本端在 CommentItem.vue 用「用户 + userId」兜底 */
   parentId?: number
   rootId?: number
   content: string
@@ -124,9 +124,8 @@ export interface VideoTotals {
 
 export interface ConversationView {
   conversationId?: number
+  /** 后端一共只有 6 个字段，不给对方昵称头像；lastMsgId 本端不读所以没声明，列表里的名字由 message.vue 的 peerName() 现算 */
   peerId: number
-  peerNickname?: string
-  peerAvatarUrl?: string
   lastMsgContent?: string
   lastMsgTime?: string
   unreadCount: number

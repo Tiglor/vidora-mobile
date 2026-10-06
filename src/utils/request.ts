@@ -111,20 +111,25 @@ export function del<T = any>(url: string): Promise<T> {
   return request<T>({ url, method: 'DELETE' })
 }
 
+/**
+ * 上传一个文件。单次请求可以带整个视频，所以进度（onProgress）和超时（timeoutMs，默认 60s）都由调用方给：
+ * 分片流程要整文件哈希才能秒传，本端没有，见 api/video.ts 的注释。
+ */
 export function uploadFile<T = any>(
   url: string,
   filePath: string,
   name: string,
-  formData?: Record<string, any>
+  formData?: Record<string, any>,
+  options?: { onProgress?: (percent: number) => void; timeoutMs?: number }
 ): Promise<T> {
   const token = uni.getStorageSync('token')
   return new Promise((resolve, reject) => {
-    uni.uploadFile({
+    const task = uni.uploadFile({
       url: `${BASE_URL}${url}`,
       filePath,
       name,
       formData,
-      timeout: 60000,
+      timeout: options?.timeoutMs ?? 60000,
       header: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
@@ -152,5 +157,9 @@ export function uploadFile<T = any>(
         reject(err)
       },
     })
+    const onProgress = options?.onProgress
+    if (onProgress) {
+      task.onProgressUpdate((res) => onProgress(res.progress))
+    }
   })
 }

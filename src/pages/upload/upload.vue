@@ -87,8 +87,8 @@ import { onUnload } from '@dcloudio/uni-app'
 import { useAuth } from '../../composables/useAuth'
 import { suggestTags } from '../../api/content'
 import { useDictStore } from '../../stores/dict'
-import { multipartInit, multipartChunk, multipartComplete, getTranscodeTask } from '../../api/video'
-import type { Tag } from '../../types'
+import { uploadVideo, getTranscodeTask } from '../../api/video'
+import type { Tag, VideoInfo } from '../../types'
 
 const { requireLogin } = useAuth()
 const dict = useDictStore()
@@ -189,92 +189,52 @@ async function onSubmit() {
   finishState.value = ''
   transcodeError.value = ''
 
-  const CHUNK_SIZE = 5 * 1024 * 1024
-  const fileSize = selectedFile.value.size
+  // formData 里没有的键要整个省掉，不能塞 undefined：uni.uploadFile 会把每个值拼成
+  // 字符串部件，undefined 到服务端就成了字面量 "undefined"，标题会显示成这三个字。
+  const formData: Record<string, any> = {}
+  if (title.value) formData.title = title.value
+  if (description.value) formData.description = description.value
+  // categoryId 初值 0 表示「没选分区」，服务端那边留空比传 0 干净（0 不是任何分区的 id）
+  if (categoryId.value) formData.categoryId = categoryId.value
 
   try {
-    const initResult = await multipartInit({
-      fileName: selectedFile.value.name || 'video.mp4',
-      fileSize,
-      chunkSize: CHUNK_SIZE,
+    const video = await uploadVideo(selectedFile.value.path, formData, (percent) => {
+      progress.value = percent
     })
-
-    if (initResult.instant) {
-      await completeUpload(initResult.uploadId)
-      return
-    }
-
-    const totalChunks = initResult.totalChunks
-    const uploaded = new Set(initResult.uploadedIndexes)
-    const pendingChunks: number[] = []
-    for (let i = 0; i < totalChunks; i++) {
-      if (!uploaded.has(i)) pendingChunks.push(i)
-    }
-
-    const concurrency = 3
-    let completed = uploaded.size
-    let idx = 0
-
-    async function uploadNext() {
-      if (idx >= pendingChunks.length) return
-      const chunkIdx = pendingChunks[idx++]
-      await multipartChunk(selectedFile.value.path, {
-        uploadId: initResult.uploadId,
-        chunkIndex: chunkIdx,
-      })
-      completed++
-      progress.value = Math.round((completed / totalChunks) * 100)
-      await uploadNext()
-    }
-
-    const workers = Array.from({ length: Math.min(concurrency, pendingChunks.length) }, () => uploadNext())
-    await Promise.all(workers)
-
-    await completeUpload(initResult.uploadId)
-  } catch (e: any) {
-    uni.showToast({ title: e?.message || '上传失败', icon: 'none' })
+    await pollTranscode(video)
+  } catch {
+    // request.ts 已经弹过一次后端给的 message 了，这里只兜住 reject 不让它冒到全局
     uploading.value = false
   }
 }
 
-async function completeUpload(uploadId: string) {
+async function pollTranscode(video: VideoInfo) {
   uploading.value = false
-  try {
-    const video = await multipartComplete({
-      uploadId,
-      title: title.value || undefined,
-      description: description.value || undefined,
-      categoryId: categoryId.value || undefined,
-    })
+  stopPolling()
+  transcoding.value = true
+  transcodeProgress.value = 0
 
-    stopPolling()
-    transcoding.value = true
-    transcodeProgress.value = 0
-
-    const deadline = Date.now() + POLL_TIMEOUT_MS
-    let failures = 0
-    poll = setInterval(async () => {
-      if (Date.now() > deadline) {
-        return finish('pending', '超过 5 分钟还没等到转码结果，可能是转码节点没起来。')
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  let failures = 0
+  poll = setInterval(async () => {
+    if (Date.now() > deadline) {
+      return finish('pending', '超过 5 分钟还没等到转码结果，可能是转码节点没起来。')
+    }
+    try {
+      const task = await getTranscodeTask(video.id)
+      failures = 0
+      // data:null：后端没开转码，永远不会有任务。不当终态处理就会每 3 秒空转到天荒地老
+      if (!task) return finish('skipped')
+      transcodeProgress.value = task.progress || 0
+      if (task.status === 2) finish('success')
+      else if (task.status === 3) finish('failed', task.errorMsg || '转码失败，请重新上传或换个视频源')
+    } catch {
+      // 单次失败（网关抖动）等下一轮，连着失败就别再打了
+      if (++failures >= MAX_POLL_FAILURES) {
+        finish('pending', '连续几次都查不到转码状态，后端可能不可用。')
       }
-      try {
-        const task = await getTranscodeTask(video.id)
-        failures = 0
-        // data:null：后端没开转码，永远不会有任务。不当终态处理就会每 3 秒空转到天荒地老
-        if (!task) return finish('skipped')
-        transcodeProgress.value = task.progress || 0
-        if (task.status === 2) finish('success')
-        else if (task.status === 3) finish('failed', task.errorMsg || '转码失败，请重新上传或换个视频源')
-      } catch {
-        // 单次失败（网关抖动）等下一轮，连着失败就别再打了
-        if (++failures >= MAX_POLL_FAILURES) {
-          finish('pending', '连续几次都查不到转码状态，后端可能不可用。')
-        }
-      }
-    }, 3000)
-  } catch (e: any) {
-    uni.showToast({ title: e?.message || '上传完成但提交失败', icon: 'none' })
-  }
+    }
+  }, 3000)
 }
 
 function goBack() {

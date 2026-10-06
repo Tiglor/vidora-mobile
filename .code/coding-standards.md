@@ -13,7 +13,8 @@ src/
   stores/       pinia store：user / message / dict（组合式写法 defineStore('id', () => {...})）
   composables/  可复用逻辑：usePagination / useDebounce / useAuth
   config/       env.ts（API 源按端切换）、client.ts（CLIENT_ID）
-  types/        index.ts —— 手写 DTO 类型
+  types/        index.ts —— 契约类型，本端手写的副本（对着后端 controller / VO / DDL 抄下来）
+                没有 generated/ 目录，也没有任何脚本会覆盖这个文件
   App.vue       应用级生命周期 + 全局样式
   main.ts       createSSRApp + pinia
 ```
@@ -24,7 +25,7 @@ src/
 
 - 页面/组件文件用功能名小写：`detail.vue`、`discover.vue`、`VideoCard.vue`（组件 PascalCase）。
 - API 函数动词开头、语义贴后端：`listVideos` / `getVideo` / `getPlayUrl` / `createComment` / `setActive`。批量用 `ByIds` 后缀（`listVideosByIds`）。
-- 类型名对齐后端 DTO/VO：`VideoInfo`、`LoginVO`、`ActionCounts`、`PageResult<T>`、`TranscodeTask`。不要自创和后端对不上的名字。
+- 字段名不是本端定的：`src/types/index.ts` 里的每个字段都是对着后端抄的手写副本，改名或拼错**不会**有编译错误，只会在运行时读到 `undefined`。这份文件导出的 interface（`VideoInfo`、`LoginVO`、`ActionCounts`、`CommentView`、`TranscodeTask`，外加壳类型 `PageResult<T>`，见第 7 节）是本端唯一词汇表——同一个后端形状不要起第二个名字，也不要为了页面顺手好看去重命名字段。
 - store 工厂统一 `use` 前缀：`useUserStore`、`useMessageStore`、`useDictStore`。
 - composable 同 `use` 前缀，参数化返回响应式状态：`usePagination`、`useDebounce`。
 
@@ -61,11 +62,28 @@ src/
 
 ## 7. 类型层约定（重点）
 
-`src/types/index.ts` 是**手写**的，历史上多次因和后端 DTO 漂移踩坑（`HotSearch.heat` 其实后端叫 `heatScore`、`Category` 用 `sortOrder` 不是 `sort`、`RecommendResult.isExposed` 是 tinyint 0/1 不是布尔）。因此：
+`src/types/index.ts` 是**手写的契约副本**：每个 interface 都是对着后端 controller / VO / entity 与 `../vidora-cloud/SQL/vidora_cloud.sql` 抄下来的，没有 `@generated` 标记，也没有任何脚本会刷新它（曾经的「`../vidora-cloud/openapi/*.json` 快照 → `npm run gen:api` → `src/types/generated/*.gen.ts`」链路已于 2026-10-06 整条撤销，理由：快照靠人手重跑脚本，忘跑时「类型检查通过」证明的是旧契约，比根本没有门禁更容易误导）。
 
-- 加/改字段前先打开对应 controller 核对，不要照前端旧印象写。
-- 数字枚举要按后端档位写注释（如 `actionType 1-赞 2-藏 3-分享`、`status 0-待处理…3-失败`）。
+这带来一个必须写明白的后果：**`npm run typecheck` 绿，只证明页面与这份副本自洽，不证明它和今天的后端一致。** 后端把字段改名或删掉，本端不会有任何编译错误，只会悄悄变成过期副本。历史上真实漂过的三起——热搜 `heat` 实为 `heatScore`（`index.ts` 的 `HotSearch` 一节）、`Category` 用 `sortOrder` 不是 `sort`（`Category` 一节）、`RecommendResult.isExposed` 是 tinyint 0/1 不是布尔（`RecommendResult` 一节）——今天仍然只是文件里的注释，没有任何东西会替你复验它们还成立。
+
+所以纪律换成人工的：
+
+- **动接口/字段之前，现场读** `../vidora-cloud` 对应服务的 `*Controller.java`，连它出入参的 VO / DTO / entity 一起看，再对 `SQL/vidora_cloud.sql` 的列注释确认档位与可空性；要看完整接口描述就起服务读该端口的 `/v3/api-docs`（8101–8108）。
+- **后端交付时要点名**「改了哪个接口、哪个字段、哪些档位」，并点名本端哪个文件要跟着改。拿不到这句话，就当契约未对齐，不要靠猜。
+
+副本回答不了的三类信息，本来就只能在后端读到：
+
+- **可空语义**。TS 里的 `?` 只说得出「可能没值」，说不出后端是省掉这个键还是真的回 `null`；本仓库也没有一份能照着推的「全局序列化配置」。判空一律用 `??` 或 `== null` 这种两边都接的写法。「资源不存在」回 `code:200 + data:null` 这类出口必须在泛型上标 `| null`（见 `api/video.ts` 的 `getOwner`、`getTranscodeTask`），标成非空就是详情页第一个 TypeError。
+- **字段在哪个接口出现、值是不是活的**。收藏数只在 interact 的 `ActionCounts` 上、`video_info` 没有这一列（`index.ts` 的 `VideoInfo` 一节就写着这件事）；`VideoInfo` 上的 `playCount`/`likeCount`/`commentCount`/`shareCount` 虽然对应 DDL 的四列，但后端 `VideoInfo.java:62-68` 写明插入时写死 0、无人累加，真实计数只在 `ActionCounts` / `VideoTotals`。这类判断类型文件给不出答案。
+- **数字枚举的档位**。`status`、`actionType`、`source` 这些 int 的含义只存在于后端注释与 DDL 列注释里。
+
+写这份文件的规矩：
+
+- 字段名照后端逐字抄，**不要**为了好看改名、也不要顺手把可选字段收成必填——可选性一变，页面的判空分支就跟着变。每处偏离后端声明的地方都要在旁边写依据（DDL 哪一列、或 impl 一定会 set）。
+- **后端不返回的字段，这里也不许声明**。TS 对多余的可选字段一声不响，页面读它就永远走兜底。2026-10-06 清掉的两处即此类：`CommentView` 挂着 `nickname`/`avatarUrl`（后端类注释写明「只带 userId，不带昵称头像」）、`ConversationView` 挂着 `peerNickname`/`peerAvatarUrl`（后端一共 6 个字段，没有对方资料），两处的真实做法都是页面自己现算名字（`CommentItem.vue` 的 `displayName()`、`message.vue` 的 `peerName()`）。
+- 数字枚举按后端档位写注释（如 `actionType 1-赞 2-藏 3-分享`、`status 0-待处理…3-失败`），与 `SQL/vidora_cloud.sql` 的列注释保持一致。
 - 「实体上没有、要靠别的接口补」的字段要注明来源（如收藏数在 `ActionCounts`，不在 `VideoInfo`）。这类说明已在文件里，改动时保留。
+- `PageResult<T>` 保持现在这个精简壳（`records/total/current/size/pages`）。后端分页对象是 MyBatis-Plus 的 `IPage` 原样，还带着 `countId` / `maxLimit` / `optimizeCountSql` / `orders` 这些框架内部字段，页面不该看见它们。本端也没有 `ApiResult` 类型：`request.ts` 已按 code 剥过一层，页面只看到 data。
 
 ## 8. 注释规范
 

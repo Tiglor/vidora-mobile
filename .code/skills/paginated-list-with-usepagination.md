@@ -12,7 +12,7 @@ usePagination<T>(
 // 返回 { list, total, loading, hasMore, refresh, loadMore }
 ```
 
-- `fetchFn` 拿到的必须是 `PageResult<T>`（`records/total/current/pages`），所以里面通常就是某个 `get<PageResult<T>>('/api/xxx/page', { current: page, size })`。
+- `fetchFn` 拿到的必须是 `PageResult<T>`（`records/total/current/size/pages`，见 `src/types/index.ts` 的 `PageResult`），所以里面通常就是某个 `get<PageResult<T>>('/api/xxx/page', { current: page, size })`。
 - `refresh()` 重置到第 1 页并清空；`loadMore()` 追加下一页。
 - `hasMore` 在 `current >= res.pages` 或本页不足 pageSize 时置 false。
 - `loadMore` 内部已 catch 并把 `hasMore` 置 false，页面不用自己兜它的错。
@@ -71,7 +71,7 @@ discover.vue 搜索完会 `recordSearch(kw, resultTotal.value)` 上报**后端�
 
 ## 验证
 
-- `npx vue-tsc --noEmit`。
+- `npm run typecheck` —— 只保证页面与 `src/types/index.ts` 那份手写副本自洽；这个分页接口实际回不回 `pages`、字段名有没有漂，它看不出来。
 - `npm run build:h5`。
 - 浏览器实测按 `skills/run-h5-in-browser.md`（hash URL）：滚到底能续拉第二页、到底显示「没有更多了」、切筛选回到第一页、空数据显示空态不报错。这些没真点过就标「未验证」。
 

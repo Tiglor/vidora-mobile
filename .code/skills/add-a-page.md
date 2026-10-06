@@ -33,7 +33,7 @@
 
 ## 验证
 
-- `npx vue-tsc --noEmit` —— 新页面语法/类型无误。
+- `npm run typecheck` —— 新页面语法/类型无误，且与 `src/types/index.ts` 那份手写副本自洽（副本本身对不对，它看不出来）。
 - `npm run build:h5` —— 改了 `pages.json` 属于跨端公共面，构建要过。
 - 起本地：`npm run dev:h5`，按 `skills/run-h5-in-browser.md` 用 **hash 形式 URL** 打开新页面路径实测能否渲染。
 - 若加了 tabBar 项，`npm run build:mp-weixin` 也要过（小程序对 tabBar 配置更严）。

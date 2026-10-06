@@ -12,11 +12,11 @@
         @click="onChatClick(conv)"
       >
         <view class="avatar-placeholder">
-          <text>{{ (conv.peerNickname || String(conv.peerId)).charAt(0) }}</text>
+          <text>{{ peerName(conv).charAt(0) }}</text>
         </view>
         <view class="conv-info">
           <view class="conv-top">
-            <text class="conv-name">{{ conv.peerNickname || '用户' + conv.peerId }}</text>
+            <text class="conv-name">{{ peerName(conv) }}</text>
             <text class="conv-time">{{ formatTime(conv.lastMsgTime) }}</text>
           </view>
           <text class="conv-last text-ellipsis">{{ conv.lastMsgContent || '暂无消息' }}</text>
@@ -69,8 +69,14 @@ async function loadConversations() {
   } catch { /* ignore */ }
 }
 
+function peerName(conv: ConversationView) {
+  // ConversationView.java 只有 6 个字段，没有对方昵称头像；要真名字得先有批量查用户的接口
+  return '用户' + conv.peerId
+}
+
 function onChatClick(conv: ConversationView) {
-  uni.navigateTo({ url: `/pages/message/chat?peerId=${conv.peerId}&nickname=${encodeURIComponent(conv.peerNickname || '用户' + conv.peerId)}` })
+  // 只带 peerId：chat.vue 的 onLoad 也只读这一个参数，昵称传过去没人接
+  uni.navigateTo({ url: `/pages/message/chat?peerId=${conv.peerId}` })
 }
 
 function goNotifications(msgType: number) {

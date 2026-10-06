@@ -1,10 +1,10 @@
 <template>
   <view class="comment-item">
     <view class="avatar">
-      <text class="avatar-text">{{ comment.nickname?.charAt(0) || '匿' }}</text>
+      <text class="avatar-text">{{ displayName(comment).charAt(0) }}</text>
     </view>
     <view class="content">
-      <text class="username">{{ comment.nickname || '匿名用户' }}</text>
+      <text class="username">{{ displayName(comment) }}</text>
       <text class="text">{{ comment.content }}</text>
       <view class="meta">
         <text class="time">{{ formatTime(comment.createTime) }}</text>
@@ -41,6 +41,12 @@ defineEmits<{
   reply: [comment: CommentView]
   loadMore: [comment: CommentView]
 }>()
+
+function displayName(comment: CommentView) {
+  // CommentView 只有 userId，昵称头像后端刻意不给（CommentView.java 类注释）：
+  // 逐条查用户会把一屏评论变成一屏远程调用，要显示真实昵称得先有批量查用户的接口。
+  return '用户' + comment.userId
+}
 
 function formatTime(time: string) {
   if (!time) return ''

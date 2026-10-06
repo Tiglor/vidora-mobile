@@ -8,7 +8,8 @@
     "dev:app": "uni -- -p app",
     "build:h5": "uni build",
     "build:mp-weixin": "uni build -p mp-weixin",
-    "build:app": "uni build -p app"
+    "build:app": "uni build -p app",
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-alpha-5030120260930001",
